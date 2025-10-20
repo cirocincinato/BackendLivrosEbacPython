@@ -22,11 +22,22 @@
 #final exemplo usando o POST -->http://127.0.0.1:8000/adiciona?id_livro=1&nome_livro=ciro%20rei%20persa&autor_livro=ciro&ano_livro=2025
 
 from fastapi import FastAPI,HTTPException
+from pydantic import BaseModel
+from typing import Optional
+
 
 
 app=FastAPI()
 
 meus_livrozinhos={}
+
+#POO:hernça sendo passada. essa clase ajuda a definir o formato das informáções
+#assim o proximo passo é ajustar todos os metos para que se 
+# adapitem há essa classe:class Livros(BaseModel):
+class Livro(BaseModel):
+    nome_livro:str
+    autor_livro:str
+    ano_livro:str
 
 @app.get("/livros")
 def get_livros():
@@ -40,11 +51,11 @@ def get_livros():
 # autor do livro
 # ano de lançamento do livro    
 @app.post("/adiciona")
-def post_livros(id_livro:int,nome_livro:str,autor_livro:str,ano_livro:int):
+def post_livros(id_livro:int,livro:Livro):
     if id_livro in meus_livrozinhos:
         raise HTTPException(status_code=400,detail="esse livro ja existe!")
     else:
-        meus_livrozinhos[id_livro]={"nome_livro":nome_livro,"autor_livro":autor_livro, "ano_livro":ano_livro}
+        meus_livrozinhos[id_livro]=livro.dict()
         return{"massage":"As informações do seu livro foram atualizadas com sucesso!"}
 
 #precisamos atualizar a informação especificando quem é com id_livro
@@ -52,17 +63,12 @@ def post_livros(id_livro:int,nome_livro:str,autor_livro:str,ano_livro:int):
 #2.pegar o livro(id_livro)
 #3.atualização de informações do livro
 @app.put("/atualiza/{id_livro}")
-def put_livro(id_livro:int,nome_livro:str,autor_livro:str,ano_livro:int):
+def put_livro(id_livro:int,livro:Livro):
     meu_livro=meus_livrozinhos.get(id_livro)
     if not meu_livro:
         raise HTTPException(status_code=400,detail="Não existe esse livro!")
     else:
-        if nome_livro:
-            meu_livro["nome_livro"]=nome_livro
-        if autor_livro:
-            meu_livro["autor_livro"]=autor_livro
-        if ano_livro:
-            meu_livro["ano_livro"]=ano_livro
+        meu_livro[id_livro]=livro.dict()
         return{"massage":"As informações do seu livro foram atualizadas com sucesso!"}
 
 @app.delete("/deletar/{id_livro}")
