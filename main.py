@@ -37,7 +37,7 @@ meus_livrozinhos={}
 class Livro(BaseModel):
     nome_livro:str
     autor_livro:str
-    ano_livro:str
+    ano_livro:int
 
 @app.get("/livros")
 def get_livros():
