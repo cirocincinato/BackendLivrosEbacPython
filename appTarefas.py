@@ -12,14 +12,13 @@ app = FastAPI()
 
 #ciação do Modelo com Pydantic
 class Tarefa(BaseModel):
-    nome_tarefa:str
-    descricao_tarefa:str
-    concluida:bool = False
-#para poder mandar um corpo apenas com nome
+    nome:str
+    descricao:str
+    concluida:bool=False
 class TarefaExistente(BaseModel):
-    nome_tarefa:str
-
-tarefas: list[Tarefa] = []
+    nome:str
+#Isso faz com que cada item da lista seja validado e convertido automaticamente.
+tarefas:list[Tarefa]=[]
 
 @app.get("/tarefas")
 def get_tarefas():
@@ -30,27 +29,30 @@ def get_tarefas():
 #como seria o nome de uma pagina de lista de tarefas...
 #imagine o contexto espesifico do armazenamento desses dados do BD;bancode dado ;  
 #Na rota de adicionar tarefa (POST), em vez de receber um dicionário, receba um objeto do tipo Tarefa como parâmetro.
+
+#como seria o nome de uma pagina de lista de tarefas...
+#imagine o contexto espesifico do armazenamento desses dados do BD;bancode dado ;  
+#Agora recebe um objeto JSON no corpo da requisição, e o FastAPI converte para o tipo Tarefa.
 @app.post("/adiciona")
-def post_tarefa(tarefa:Tarefa):
+def post(tarefa:Tarefa):
     for linha in tarefas:
-        if linha.nome_tarefa==tarefa.nome_tarefa:
+        if linha.nome==tarefa.nome:
             raise HTTPException(status_code=400,detail="essa tarefa já existe!")
     tarefas.append(tarefa)
-    return{"massage":"As informações da sua tarefa foram adicionadas com sucesso!"}
+    return {"message": "Tarefa adicionada com sucesso!"}
 @app.put("/atualiza")
-def put_tarefa(tarefa:TarefaExistente):
+def put(tarefaExis:TarefaExistente):
     for linha in tarefas:
-        if linha.nome_tarefa==tarefa.nome_tarefa:
+        if linha.nome==tarefaExis.nome:
             linha.concluida=True
-            return{"massage":"As informação de tarefa conluida foi atualizada com sucesso!"}
-    raise HTTPException(status_code=400,detail="Não existe essa tarefa!")
+            return{"message":"As informação de tarefa conluida foi atualizada com sucesso!"}
+    raise HTTPException(status_code=404, detail="Tarefa não encontrada!")
 @app.delete("/deleta")
-def deleta_tarefa(tarefa:TarefaExistente):
+def deleta_tarefa(tarefaExis:TarefaExistente):
     for linha in tarefas:
-        if linha.nome_tarefa==tarefa.nome_tarefa:
-            tarefas.remove(linha)   
-            return{"massage":"As informação de tarefa foi removida com sucesso!"}
-    raise HTTPException(status_code=404,detail="Essa tarefa não foi encontrada!")
-
+        if linha.nome==tarefaExis.nome:
+            tarefas.remove(linha)
+            return {"message": "Tarefa removida com sucesso!"}
+    raise HTTPException(status_code=404, detail="Tarefa não encontrada!")
 #api é um tipo de beck-end 
 #clientes()--> API --> seus metodos para lidar(validar/invalidar uma informação)
