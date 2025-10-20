@@ -11,7 +11,7 @@
 #CRUDE é =
 
 #create
-#   
+#read
 #update
 #delete
 
@@ -21,13 +21,24 @@
 
 #final exemplo usando o POST -->http://127.0.0.1:8000/adiciona?id_livro=1&nome_livro=ciro%20rei%20persa&autor_livro=ciro&ano_livro=2025
 
+#documentação Swagger -> documentar os endpoints da nossa aplicação(da nossa API)
+
+
 from fastapi import FastAPI,HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
 
 
-app=FastAPI()
+app=FastAPI(
+    title="API de Livros",
+    description="API para gerenciar catálogo de livros.",
+    version="1.0.0",
+    contact={
+        "name":"Ciro Da Rocha",
+        "email":"cirocincinato1@gmail.com"
+    }
+)
 
 meus_livrozinhos={}
 
