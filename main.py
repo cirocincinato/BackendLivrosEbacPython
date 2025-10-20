@@ -62,13 +62,24 @@ def post_livros(id_livro:int,livro:Livro):
 #1.quem é o livro(id_livro)
 #2.pegar o livro(id_livro)
 #3.atualização de informações do livro
+#dicionário=HashMap
+#cahve->valor
+#meu_livro está recebendo meus_livrozinhos.get(id_livro)
+#isso cria uma referencia antiga e por consequncia quando tentamos atualizar com meu_livro[id_livro]=livro.dict()
+#isso atualiza a informçaõ em um id de referencia o que gera o problema onde as atualização 
+# apartir de uma terceira vez avera parcialemnte atualização correta porem sempre vai ter as informaçoes do meus_livrozinhos antiga
+#quando utilizamos meus_livrozinhos[id_livro]=livro.dict() estamos mudando a informaçaõ no dicionario atual e não em uam referncia 
+#
 @app.put("/atualiza/{id_livro}")
 def put_livro(id_livro:int,livro:Livro):
     meu_livro=meus_livrozinhos.get(id_livro)
     if not meu_livro:
         raise HTTPException(status_code=400,detail="Não existe esse livro!")
     else:
-        meu_livro[id_livro]=livro.dict()
+        #eu jogo essa informação dentro do meu antigo dicionário(que é meus_livrozinhos)
+        #e não dentro da referencia do antigo dicionário
+        # antigo dicionário !=referencia do antigo dicioanrio
+        meus_livrozinhos[id_livro]=livro.dict()
         return{"massage":"As informações do seu livro foram atualizadas com sucesso!"}
 
 @app.delete("/deletar/{id_livro}")
