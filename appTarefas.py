@@ -1,40 +1,54 @@
 from fastapi import FastAPI,HTTPException
-
+#importação do Modelo com Pydantic
+from pydantic import BaseModel
 app = FastAPI()
 
-tarefas=[]
+
 # read:buscar os dados de tarefas(pois os dados fastapi dev main.py
 #estão  contidos dentro da variavel tarefas do tipo array 
 #que vai conter a sequencia com vetores ocupando uma valor na posição de memoria
 # Que podem ser de firentes tipos "",'':str. 1,0.1:int,float. True,False:boolen)
 #fazer converção de dados para facilitar o uso deles dentro de cada metodo do CRUDE
+
+#ciação do Modelo com Pydantic
+class Tarefa(BaseModel):
+    nome_tarefa:str
+    descricao_tarefa:str
+    concluida:bool = False
+#para poder mandar um corpo apenas com nome
+class TarefaExistente(BaseModel):
+    nome_tarefa:str
+
+tarefas: list[Tarefa] = []
+
 @app.get("/tarefas")
 def get_tarefas():
     if not tarefas:
-        return {"message":"Não existe nenhum livro!"}
+        return {"message":"Não existe nenhuma tarefa!"}
     else:
-        return {"livros": tarefas}
+        return tarefas
 #como seria o nome de uma pagina de lista de tarefas...
 #imagine o contexto espesifico do armazenamento desses dados do BD;bancode dado ;  
+#Na rota de adicionar tarefa (POST), em vez de receber um dicionário, receba um objeto do tipo Tarefa como parâmetro.
 @app.post("/adiciona")
-def post(nome_nova_tarefa:str,descricao_nova_tarefa:str):
+def post_tarefa(tarefa:Tarefa):
     for linha in tarefas:
-        if linha["nome"]==nome_nova_tarefa:
+        if linha.nome_tarefa==tarefa.nome_tarefa:
             raise HTTPException(status_code=400,detail="essa tarefa já existe!")
-    tarefas.append({"nome":nome_nova_tarefa,"descrição":descricao_nova_tarefa,"concluída":False})
+    tarefas.append(tarefa)
     return{"massage":"As informações da sua tarefa foram adicionadas com sucesso!"}
-@app.put("/atualiza/{nome_tarefa}")
-def put(nome_tarefa:str):
+@app.put("/atualiza")
+def put_tarefa(tarefa:TarefaExistente):
     for linha in tarefas:
-        if linha["nome"]==nome_tarefa:
-            linha["concluída"]=True
+        if linha.nome_tarefa==tarefa.nome_tarefa:
+            linha.concluida=True
             return{"massage":"As informação de tarefa conluida foi atualizada com sucesso!"}
     raise HTTPException(status_code=400,detail="Não existe essa tarefa!")
-@app.delete("/deleta/{nome_tarefa}")
-def deleta_tarefa(nome_tarefa:str):
+@app.delete("/deleta")
+def deleta_tarefa(tarefa:TarefaExistente):
     for linha in tarefas:
-        if linha["nome"]==nome_tarefa:
-            tarefas.remove(linha)
+        if linha.nome_tarefa==tarefa.nome_tarefa:
+            tarefas.remove(linha)   
             return{"massage":"As informação de tarefa foi removida com sucesso!"}
     raise HTTPException(status_code=404,detail="Essa tarefa não foi encontrada!")
 
