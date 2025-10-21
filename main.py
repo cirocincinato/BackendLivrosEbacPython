@@ -71,11 +71,16 @@ def get_livros(page: int=1,limit:int=10,credentials:HTTPBasicCredentials=Depends
         raise HTTPException(status_code=400,detail="page ou limit estão com valores inválidos!!")
     if not meus_livrozinhos:
         return {"message":"Não existe nenhum livro!!"}
+    
+    livros_ordenados=sorted(meus_livrozinhos.items(),key=lambda item:item[0])
+
     start=(page-1)*limit
     end=start+limit
+
+
     livro_paginados=[
         {"id":id_livro, "nome_livro":livro_data["nome_livro"],"autor_livro":livro_data["autor_livro"],"ano_livro":livro_data["ano_livro"]}
-        for id_livro,livro_data in list(meus_livrozinhos.items())[start:end] 
+        for id_livro,livro_data in livros_ordenados [start:end] 
     ]
     return {
         "page":page,
