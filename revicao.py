@@ -44,11 +44,11 @@ def patch_livros(idx: int, livros: LivrosUpdate):
 
 
     if livros.nome is not None:
-        registro["nome"] = livros.nome
+        meu_livroszinho["nome"] = livros.nome
     if livros.autor is not None:
-        registro["autor"] = livros.autor
+        meu_livroszinho["autor"] = livros.autor
     if livros.ano is not None:
-        registro["ano"] = livros.ano
+        meu_livroszinho["ano"] = livros.ano
 
     return {"message": "atualizado com sucesso"}
 @app.delete("/deletar/{idx}")
