@@ -67,7 +67,7 @@ def autenticar_meu_usuario(credentials:HTTPBasicCredentials=Depends(security)):
 #paginação somente no meto GET
 @app.get("/livros")
 def get_livros(page: int=1,limit:int=10,credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
-    if page < 1 or limit<1:
+    if page < 0 or limit<=0:
         raise HTTPException(status_code=400,detail="page ou limit estão com valores inválidos!!")
     if not meus_livrozinhos:
         return {"message":"Não existe nenhum livro!!"}
