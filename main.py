@@ -89,6 +89,25 @@ def autenticar_meu_usuario(credentials:HTTPBasicCredentials=Depends(security)):
     if not(is_username_correct and is_password_correct):
         raise HTTPException(status_code=401, detail="usuário ou senha incorretos", headers={"WWW-Authenticate":"Basic"})
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #paginação somente no meto GET
 @app.get("/livros")
 def get_livros(page: int=1,limit:int=10,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
@@ -112,6 +131,28 @@ def get_livros(page: int=1,limit:int=10,db:Session=Depends(sessao_db),credential
         "livros":[{"id":livro.id,"nome_livro":livro.nome_livro,"autor_livro":livro.autor_livro,"ano_livro":livro.ano_livro}
                   for livro in livros]
     }
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 # id do livro
 # nome do livro
@@ -139,6 +180,26 @@ def post_livros(livro:Livro,db:Session=Depends(sessao_db),credentials:HTTPBasicC
 # apartir de uma terceira vez avera parcialemnte atualização correta porem sempre vai ter as informaçoes do meus_livrozinhos antiga
 #quando utilizamos meus_livrozinhos[id_livro]=livro.dict() estamos mudando a informaçaõ no dicionario atual e não em uam referncia 
 #
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.put("/atualiza/{id_livro}")
 def put_livro(id_livro:int,livro:Livro,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
     db_livro=db.query(LivroDB).filter(LivroDB.id==id_livro).first()
@@ -152,6 +213,36 @@ def put_livro(id_livro:int,livro:Livro,db:Session=Depends(sessao_db),credentials
     db.commit()
     db.refresh(db_livro)
     return{"message":"livro atualizado com sucesso"}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.delete("/deletar/{id_livro}")
 def delete_livro(id_livro:int,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):    
     db_livro=db.query(LivroDB).filter(LivroDB.id==id_livro).first()
@@ -160,3 +251,5 @@ def delete_livro(id_livro:int,db:Session=Depends(sessao_db),credentials:HTTPBasi
     db.delete(db_livro)
     db.commit()
     return {"message":"seu livro foi deletado."}
+#ACIND
+#ORM ->OBJECT Relational Mapping

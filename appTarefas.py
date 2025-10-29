@@ -1,132 +1,129 @@
+from typing import Optional
 from fastapi import FastAPI,HTTPException,Depends
 from fastapi.security import HTTPBasic,HTTPBasicCredentials 
 #importação do Modelo com Pydantic
 from pydantic import BaseModel
 import secrets
 import os
+
+from sqlalchemy import create_engine,Column,Integer,String, Boolean, UniqueConstraint
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker,Session
+from sqlalchemy.exc import IntegrityError
+DATABASE_URL="sqlite:///./tarefas.db"
+
+engine=create_engine(DATABASE_URL,connect_args={"check_same_thread":False})
+SessionLocal=sessionmaker(autocommit=False,autoflush=False,bind=engine)
+Base=declarative_base()
+
 app = FastAPI(title="API de Tarefas",
               description="API que gerencia Tarefas",
-              version="0.0.1",
+              version="0.0.3",
               contact={
                   "name":"Ciro da Rocha",
                   "email":"ciroreipesa@gmail.com"
             }
         )
 
+class TarefaDB(Base):
+    __tablename__="Tarefa"
+    id=Column(Integer,primary_key=True,index=True)
+    nome=Column(String,  index=True, unique=True, nullable=False)
+    descricao=Column(String,  index=True, nullable=False)
+    concluida=Column(Boolean, nullable=False, default=False)
 
-# read:buscar os dados de tarefas(pois os dados fastapi dev main.py
-#estão  contidos dentro da variavel tarefas do tipo array 
-#que vai conter a sequencia com vetores ocupando uma valor na posição de memoria
-# Que podem ser de firentes tipos "",'':str. 1,0.1:int,float. True,False:boolen)
-#fazer converção de dados para facilitar o uso deles dentro de cada metodo do CRUDE
-
-#ciação do Modelo com Pydantic
 class Tarefa(BaseModel):
     nome:str
     descricao:str
     concluida:bool=False
-class TarefaExistente(BaseModel):
+class TarefaConcluida(BaseModel):
     nome:str
-#Isso faz com que cada item da lista seja validado e convertido automaticamente.
-tarefas:list[Tarefa]=[]
 
-#crindo aut emticador para usuario
+Base.metadata.create_all(bind=engine)
 
-MEU_USUARIO="a" 
-MINHA_SENHA="a"
+def sessao_db():
+    db=SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
+EU="a"
+SENHA="a"
 security=HTTPBasic()
+def autentica(credentials:HTTPBasicCredentials=Depends(security)):
+    usuario_correto=secrets.compare_digest(credentials.username,EU)
+    senha_correta=secrets.compare_digest(credentials.password,SENHA)
+    if not(usuario_correto and senha_correta):
+        raise HTTPException(status_code=401,detail="usuario ou senha incoretos",headers={"WWW-Authenticate":"Basic"})
 
-def autenticar_meu_usuario(credentials:HTTPBasicCredentials=Depends(security)):
-    is_username_correct=secrets.compare_digest(credentials.username,MEU_USUARIO)
-    is_password_correct=secrets.compare_digest(credentials.password,MINHA_SENHA)
-    if not(is_password_correct and is_username_correct):
-        raise HTTPException(status_code=401,detail="usuário ou senha incorretos", headers={"WWW-Authenticate":"Basic"})
-    
+@app.post("/tarefas/adicionar", status_code=201)
+def post_tarefa(tarefa:Tarefa,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autentica)):
+    nome = tarefa.nome.strip()
+    desc = tarefa.descricao.strip()
+    if not nome:
+        raise HTTPException(status_code=400,detail="nome é obrigatório!")
+    if not desc:
+        raise HTTPException(status_code=400,detail="descrição é obrigatório!")
+    db_tarefa=db.query(TarefaDB).filter(TarefaDB.nome==nome).first()
+    if db_tarefa:
+        raise HTTPException(status_code=409, detail="essa tarefa ja existe no banco de dados!")
+    nova_tarefa=TarefaDB(nome=nome,descricao=desc,concluida=tarefa.concluida)
+    db.add(nova_tarefa)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        # Se outra request inseriu o mesmo nome nesse intervalo
+        raise HTTPException(status_code=409, detail="essa tarefa já existe no banco de dados!")
 
-@app.get("/tarefas")#order_by: str = "id" está ordenando por id, mas da para passa outro parametro pela URL.
-def get_tarefas(page:int=1,limit:int=5, order_by: str = "id",  direction: str = "asc",  credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
-# direction: str = "asc" premit escilher se vai ser em ordem cresente(`asc`) ou decresente
-    if page<1 or limit<1:
-        raise HTTPException(status_code=400,detail="page ou limit estão com valores inválidos!!")
-    if not tarefas:
-        return {"message":"Não existe nenhuma tarefa!!"}
-    
-    #tarefas_ordenadas=sorted(enumerate(tarefas),key=lambda item:item[0])
-    #pares (id, dados)
-    itens=list(enumerate(tarefas))
-
-    #ordenação 
-
-    direction=direction.lower()
-
-    if direction not in("asc","desc"):
-        raise HTTPException(status_code=400, detail="direction deve ser 'asc' ou 'desc'")
-
-    reverse=(direction=="desc")
-    order_by = order_by.lower()
-    if order_by=="id":
-        itens_ordenados=sorted(itens,key=lambda item:item[0],reverse=reverse)
-    elif order_by=="nome":
-        itens_ordenados=sorted(itens, key=lambda item:item[1].nome.casefold(),reverse=reverse)
-    elif order_by=="descricao":
-        itens_ordenados=sorted(itens, key=lambda item:item[1].descricao.casefold(),reverse=reverse)
-    elif order_by=="concluida":
-         itens_ordenados=sorted(itens,key=lambda item:item[1].concluida,reverse=reverse)
-    else:
-        raise HTTPException(status_code=400, detail="order_by deve ser 'id', 'nome', 'descricao' ou 'concluida'")
-    
-
-
-    start =(page-1)*limit
-    end=start+limit
-
-    tarefas_paginadas=[
-
-        {"id":idx,
-         "nome":t.nome,
-         "descricao":t.descricao,
-         "concluida":t.concluida
-        }
-        for idx,t in itens_ordenados[start :end]
-    ]
-
-    return{
-        "page":page,
-        "limit":limit,
-        "total":len(tarefas),
-        "tarefas":tarefas_paginadas
+    db.refresh(nova_tarefa)
+    return {
+    "id": nova_tarefa.id,
+    "nome": nova_tarefa.nome,
+    "descricao": nova_tarefa.descricao,
+    "concluida": nova_tarefa.concluida,
     }
 
+@app.get("/tarefas/mostrar", status_code=200)
+def get_tarefas(page:int=1, limit:int=1,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autentica)):
+    if page<1 or limit<=0:
+        raise HTTPException(status_code=400, detail="page ou limit inválidos!")
    
-    
-#como seria o nome de uma pagina de lista de tarefas...
-#imagine o contexto espesifico do armazenamento desses dados do BD;bancode dado ;  
-#Na rota de adicionar tarefa (POST), em vez de receber um dicionário, receba um objeto do tipo Tarefa como parâmetro.
+    tarefas=db.query(TarefaDB).offset((page-1)*limit).limit(limit).all()
+    total_tarefas=db.query(TarefaDB).count()
 
-#como seria o nome de uma pagina de lista de tarefas...
-#imagine o contexto espesifico do armazenamento desses dados do BD;bancode dado ;  
-#Agora recebe um objeto JSON no corpo da requisição, e o FastAPI converte para o tipo Tarefa.
-@app.post("/adiciona")
-def post(tarefa:Tarefa,credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
-    for linha in tarefas:
-        if linha.nome==tarefa.nome:
-            raise HTTPException(status_code=400,detail="essa tarefa já existe!")
-    tarefas.append(tarefa)
-    return {"message": "Tarefa adicionada com sucesso!"}
-@app.put("/atualiza")
-def put(tarefaExis:TarefaExistente,credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
-    for linha in tarefas:
-        if linha.nome==tarefaExis.nome:
-            linha.concluida=True
-            return{"message":"As informação de tarefa conluida foi atualizada com sucesso!"}
-    raise HTTPException(status_code=404, detail="Tarefa não encontrada!")
-@app.delete("/deleta")
-def deleta_tarefa(tarefaExis:TarefaExistente,credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
-    for linha in tarefas:
-        if linha.nome==tarefaExis.nome:
-            tarefas.remove(linha)
-            return {"message": "Tarefa removida com sucesso!"}
-    raise HTTPException(status_code=404, detail="Tarefa não encontrada!")
-#api é um tipo de beck-end 
-#clientes()--> API --> seus metodos para lidar(validar/invalidar uma informação)
+    return {
+        "page": page,
+        "limit": limit,
+        "total": total_tarefas,
+        "tarefas": [{"id":tarefa.id,"nome":tarefa.nome,"descricao":tarefa.descricao,"concluida":tarefa.concluida}
+                  for tarefa in tarefas]
+    }
+
+@app.put("/tarefas/concluir")
+def put_tarefa(tarefa:TarefaConcluida,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autentica)):
+    nome = tarefa.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="nome é obrigatório!")
+
+    db_tarefa=db.query(TarefaDB).filter(TarefaDB.nome==nome).first()
+    if not db_tarefa:
+        raise HTTPException(status_code=404,detail="tarefa não encontrada!")
+    db_tarefa.concluida=True
+    db.commit()
+    db.refresh(db_tarefa)
+    return{"message":"tarefa atualizado com sucesso"}
+
+@app.delete("/tarefas/deletar")
+def delete_tarefa(tarefa:TarefaConcluida,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autentica)):
+    nome = tarefa.nome.strip()
+    if not nome:
+        raise HTTPException(status_code=400, detail="nome é obrigatório!")
+    
+    db_tarefa=db.query(TarefaDB).filter(TarefaDB.nome==nome).first()
+    if not db_tarefa:
+        raise HTTPException(status_code=404, detail="tarefa não encontrada!")
+    db.delete(db_tarefa)
+    db.commit()
+    return {"message":"seu tarefa foi deletado."}
