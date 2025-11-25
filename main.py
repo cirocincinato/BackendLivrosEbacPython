@@ -29,16 +29,22 @@ from pydantic import BaseModel
 from typing import Optional
 import secrets
 import os
+import redis
+import json
 
 from sqlalchemy import create_engine,Column,Integer,String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker,Session
+
+import asyncio
 
 DATABASE_URL=os.getenv("DATABASE_URL")
 
 engine=create_engine(DATABASE_URL,connect_args={"check_same_thread":False})
 SessionLocal=sessionmaker(autocommit=False,autoflush=False,bind=engine)
 Base=declarative_base()
+
+redis_client=redis.Redis(host='localhost',port=6379, db=0, decode_responses=True)
 
 app=FastAPI(
     title="API de Livros",
@@ -54,7 +60,6 @@ MEU_USUARIO=os.getenv("MEU_USUARIO")
 MINHA_SENHA=os.getenv("MINHA_SENHA")
 
 security=HTTPBasic()
-
 meus_livrozinhos={}
 
 #POO:hernça sendo passada. essa clase ajuda a definir o formato das informáções
@@ -74,6 +79,14 @@ class Livro(BaseModel):
 
 Base.metadata.create_all(bind=engine)
 
+def salvar_livro_redis(livro_id: int, livro: Livro):
+    
+    redis_client.set(f"livro:{livro_id}", json.dumps(livro.dict()))
+
+def deletar_livro_redis(livro_id:int):
+    redis_client.delete(f"livro:{livro_id}")
+
+
 def sessao_db():
     db=SessionLocal()
     try:
@@ -88,11 +101,38 @@ def autenticar_meu_usuario(credentials:HTTPBasicCredentials=Depends(security)):
 
     if not(is_username_correct and is_password_correct):
         raise HTTPException(status_code=401, detail="usuário ou senha incorretos", headers={"WWW-Authenticate":"Basic"})
-
-
+'''   
+async def chamada_externa_1():
+    await asyncio.sleep(3)
+    return "resultado chamda externa 1"
+async def chamada_externa_2():
+    await asyncio.sleep(2)
+    return "resultado chamda externa 2"
+async def chamada_externa_3():
+    await asyncio.sleep(1)
+    return "resultado chamda externa 3"
+@app.get("/chamadas-externas")
+async def chamdas_externas():
+    tarefa1=asyncio.create_task(chamada_externa_1())
+    tarefa2=asyncio.create_task(chamada_externa_2())
+    tarefa3=asyncio.create_task(chamada_externa_3())
+    resultado1=await tarefa1
+    resultado2=await tarefa2
+    resultado3=await tarefa3
+    return {"mesagem":"todas as chamadas nas API`s foram concluidas com sucesso",
+            "resultado":[resultado1,resultado2,resultado3]}
+''' 
+@app.get("debug/redis")    
+def ver_livros_redis():
+    chaves=redis_client.keys("livros:*")
+    livros=[]
+    for chave in chaves:
+        valor=redis_client.get(chave)  
+        livros.append({"chave":chave,"valor":json.loads(valor)})      
+    return livros
 #paginação somente no meto GET
 @app.get("/livros")
-def get_livros(page: int=1,limit:int=10,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
+async def get_livros(page: int=1,limit:int=100,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
     if page < 0 or limit<=0:
         raise HTTPException(status_code=400,detail="page ou limit estão com valores inválidos!!")
     
@@ -107,26 +147,27 @@ def get_livros(page: int=1,limit:int=10,db:Session=Depends(sessao_db),credential
     #]
     total_livros=db.query(LivroDB).count()
     return {
-        "page":page,
+        "page":page, 
         "limit":limit,
         "total":total_livros,
         "livros":[{"id":livro.id,"nome_livro":livro.nome_livro,"autor_livro":livro.autor_livro,"ano_livro":livro.ano_livro}
                   for livro in livros]
     }
   
-@app.post("/adiciona")
-def post_livros(livro:Livro,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
+@app.post("/adiciona") 
+async def post_livros(livro:Livro,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
     db_livro=db.query(LivroDB).filter(LivroDB.nome_livro==livro.nome_livro,LivroDB.autor_livro==livro.autor_livro).first()
     if db_livro:
         raise HTTPException(status_code=400, detail="esse livro ja existe no banco de dados")
     novo_livro=LivroDB(nome_livro=livro.nome_livro,autor_livro=livro.autor_livro,ano_livro=livro.ano_livro)
     db.add(novo_livro)
-    db.commit()
+    db.commit() 
     db.refresh(novo_livro)
+    salvar_livro_redis(novo_livro.id,livro)
     return{"message":"o livro foi criado com sucesso"}
 
 @app.put("/atualiza/{id_livro}")
-def put_livro(id_livro:int,livro:Livro,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
+async def put_livro(id_livro:int,livro:Livro,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
     db_livro=db.query(LivroDB).filter(LivroDB.id==id_livro).first()
     if not db_livro:
         raise HTTPException(status_code=400,detail="livro nao existe dentro do banco de dados!")
@@ -141,12 +182,13 @@ def put_livro(id_livro:int,livro:Livro,db:Session=Depends(sessao_db),credentials
 
 
 @app.delete("/deletar/{id_livro}")
-def delete_livro(id_livro:int,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):    
+async def delete_livro(id_livro:int,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):    
     db_livro=db.query(LivroDB).filter(LivroDB.id==id_livro).first()
     if not db_livro:
         raise HTTPException(status_code=404,detail="este livro nao foi encontrado")
     db.delete(db_livro)
     db.commit()
+    deletar_livro_redis(id_livro)
     return {"message":"seu livro foi deletado."}
 #ACIND
 #ORM ->OBJECT Relational Mapping

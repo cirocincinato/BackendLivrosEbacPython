@@ -1,32 +1,44 @@
-x=[
-    {"nome_tarefa":"corrida pela manha","descricao":"correr bastante de das 6a.m até 10 a.m","concluido":True},
-    {"nome_tarefa":"caminhada noturna","descricao":"correr bastante de das 9p.m até 11p.m","concluido":False},
-    {"nome_tarefa":"aesa para DEUS","descricao":"horar para o pai supremo","concluido":True},
-    {"nome_tarefa":"tempo de qualida","descricao":"py aula5.py","concluido":False}
-]
-#GET 
-variavel_para_ordenacao="concluido"
-tarefas_ordenadas=sorted(x,key=lambda item:item[variavel_para_ordenacao])
-print(tarefas_ordenadas)
+x=[1,23,43,4,5,5,1,2,3]
+diz={}
+for i in x:
+    if i not in diz:
+        diz[i]=1
+    else:
+        diz[i]+=1
+for n,v in diz.items():
+    if v>1:
+        print(n) 
 
-#POST
-nome_nova="SEXO matinal"
-descricao_nova="SEXO deve ser feito todos os dias"
-x.append({"nome_tarefa":descricao_nova,"descricao":nome_nova,"concluido":False})
-print(x)
 
-#vamos adicionar informaçoes para a tabela
-#seria a libha da tabela 
-#PUT
-for linha in x:
-    if linha["nome_tarefa"]=="resa para DEUS":
-        linha["concluido"]=True
-        print(linha)
 
-for linha in x:
-    if linha["nome_tarefa"]=="caminhada noturna":
-        x.remove(linha)
-print(x)
-        
-        
 
+
+
+
+
+
+
+
+
+
+
+
+
+'''
+import asyncio
+
+async def pikachu():
+    print("2 pikachu entrou")
+    await asyncio.sleep(2)
+    print("2 pikachu usou choque do trovao")
+
+async def charmander():
+    print("3 charmander entrou")
+    await asyncio.sleep(1)
+    print("3 charmander usou folhar")
+
+async def batalha():
+    await asyncio.gather(pikachu(),charmander())
+
+asyncio.run(batalha())
+'''
