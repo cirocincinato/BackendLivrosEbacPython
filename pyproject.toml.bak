@@ -2,7 +2,9 @@
 name = "backend-livros-ebac-python"
 version = "0.1.0"
 description = "Backend FastAPI do projeto EBAC Python"
-authors = ["ciro rocha <ciroreipersa@gmail.com>"]
+authors = [
+    { name = "ciro rocha", email = "ciroreipersa@gmail.com" }
+]
 readme = "README.md"
 package-mode = false
 
@@ -13,11 +15,9 @@ sqlalchemy = ">=2.0,<3.0"
 aiosqlite = ">=0.19,<0.22"
 redis = ">=7.1.0,<8.0.0"
 python-dotenv = "*"
-celery = "^5.6.0"
 
 [tool.poetry.group.dev.dependencies]
-uvicorn = {extras = ["standard"], version = "^0.38.0"}
-fastapi-cli = "^0.0.16"
+uvicorn = {extras = ["standard"], version = "*"}
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

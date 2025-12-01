@@ -85,10 +85,10 @@ Base.metadata.create_all(bind=engine)
 
 def salvar_livro_redis(livro_id: int, livro: Livro):
     
-    redis_client.set(f"livros:{livro_id}", json.dumps(livro.dict()))
+    redis_client.set(f"livro:{livro_id}", json.dumps(livro.dict()))
 
 def deletar_livro_redis(livro_id:int):
-    redis_client.delete(f"livros:{livro_id}")
+    redis_client.delete(f"livro:{livro_id}")
 
 
 def sessao_db():
@@ -126,7 +126,7 @@ async def chamdas_externas():
     return {"mesagem":"todas as chamadas nas API`s foram concluidas com sucesso",
             "resultado":[resultado1,resultado2,resultado3]}
 ''' 
-@app.get("/debug/redis")    
+@app.get("debug/redis")    
 def ver_livros_redis():
     chaves=redis_client.keys("livros:*")
     livros=[]
@@ -182,7 +182,6 @@ async def put_livro(id_livro:int,livro:Livro,db:Session=Depends(sessao_db),crede
 
     db.commit()
     db.refresh(db_livro)
-    salvar_livro_redis(db_livro.id,livro)
     return{"message":"livro atualizado com sucesso"}
 
 
