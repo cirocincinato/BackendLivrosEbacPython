@@ -38,7 +38,6 @@ from celery.result import AsyncResult
 from sqlalchemy import create_engine,Column,Integer,String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker,Session
-
 import asyncio
 
 from dotenv import load_dotenv
@@ -51,7 +50,9 @@ engine=create_engine(DATABASE_URL,connect_args={"check_same_thread":False})
 SessionLocal=sessionmaker(autocommit=False,autoflush=False,bind=engine)
 Base=declarative_base()
 
-redis_client=redis.Redis(host='redis',port=6379, db=0, decode_responses=True)
+REDIS_HOST=os.getenv("REDIS_HOST","localhost")
+REDIS_PORT=os.getenv("REDIS_PORT","6379")
+redis_client=redis.Redis(host=REDIS_HOST,port=REDIS_PORT, db=0, decode_responses=True)
 
 app=FastAPI(
     title="API de Livros",
@@ -67,7 +68,7 @@ MEU_USUARIO=os.getenv("MEU_USUARIO")
 MINHA_SENHA=os.getenv("MINHA_SENHA")
 
 security=HTTPBasic()
-meus_livrozinhos={}
+#meus_livrozinhos={}
 
 #POO:hernça sendo passada. essa clase ajuda a definir o formato das informáções
 #assim o proximo passo é ajustar todos os metos para que se 
@@ -111,6 +112,8 @@ def autenticar_meu_usuario(credentials:HTTPBasicCredentials=Depends(security)):
 @app.post("/calcular/soma")
 def calcular_soma(a:int,b:int):
     tarefa=somar.delay(a,b)
+    redis_client.lpush("tarefas_ids",tarefa.id)
+    redis_client.ltrim("tarefas_ids",0,49)
     return{
         "task_id":tarefa.id,
         "message":"Tarefa de soma envida"
@@ -118,10 +121,53 @@ def calcular_soma(a:int,b:int):
 @app.post("/calcular/fatorial")
 def calcular_fatorial(n:int):
     tarefa=fatorial.delay(n)
+    redis_client.lpush("tarefas_ids",tarefa.id)
+    redis_client.ltrim("tarefas_ids",0,49)
     return{
         "task_id":tarefa.id,
         "message":"Tarefa de fatorial envida"
     }
+    
+
+@app.get("/tarefas/recentes")
+def listar_tarefas_recentes():
+    ids= redis_client.lrange("tarefas_ids",0,-1)
+    tarefas=[]
+    for task_id in ids:
+        resultado=AsyncResult(task_id,app=celery_app)
+        tarefas.append({
+            "task_id":task_id,
+            "status":resultado.status,
+            "resultado":resultado.result if resultado.successful() else None
+        })
+    return tarefas
+
+@app.get("/result/{task_id}")
+def resultr(task_id: str):
+    resultado = AsyncResult(task_id, app=celery_app)
+    return {
+        "task_id": task_id,
+        "status": resultado.status,
+        "resultado": resultado.result if resultado.successful() else None
+    }
+@app.get("/result/forcado/{task_id}")
+def resultr_forcado(task_id: str):
+    resultado = AsyncResult(task_id, app=celery_app)
+    try:
+        # Aguarda até 10 segundos pelo resultado
+        valor = resultado.get(timeout=10)
+        return {
+            "task_id": task_id,
+            "status": resultado.status,
+            "resultado": valor
+        }
+    except Exception as e:
+        return {
+            "task_id": task_id,
+            "status": resultado.status,
+            "erro": str(e)
+        }
+
 #estrategia de cache para pegar POST,PUT,DELET da api
 @app.get("/debug/redis")    
 def ver_livros_redis():

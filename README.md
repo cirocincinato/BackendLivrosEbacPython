@@ -1,3 +1,7 @@
+podman-compose up -d
+podman ps
+
+
 services:
     app:
         build: .
