@@ -7,7 +7,8 @@ REDIS_URL=os.getenv("REDIS_URL",F"redis://{REDIS_HOST}:{REDIS_PORT}/0")
 celery_app=Celery(
     "tarefas_livros",
     broker=REDIS_URL,
-    backend=REDIS_URL
+    backend=REDIS_URL,
+    include=["tasks"] 
 )
 celery_app.conf.update(
     task_track_started=True,

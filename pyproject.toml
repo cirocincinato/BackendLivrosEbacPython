@@ -14,11 +14,17 @@ aiosqlite = ">=0.19,<0.22"
 redis = ">=7.1.0,<8.0.0"
 python-dotenv = "*"
 celery = "^5.6.0"
+kafka-python = "^2.3.0"
+pytest = "^9.0.2"
+pytest-cov = "^7.0.0"
 
 [tool.poetry.group.dev.dependencies]
 uvicorn = {extras = ["standard"], version = "^0.38.0"}
 fastapi-cli = "^0.0.16"
+pytest-mock = "^3.15.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+[tool.pytest.ini_options]
+pythonpath=["."]

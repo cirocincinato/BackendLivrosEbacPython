@@ -8,6 +8,10 @@ services:
             - .:/app
         env_file:
             - .env
+        environment:
+            - KAFKA_SERVER=kafka:9092
+        depends_on:
+            - kafka
         command: [ "poetry","run","uvicorn","main:app","--host","0.0.0.0","--port","8000" ]
             
     redis:
@@ -19,10 +23,44 @@ services:
     celery:
         build: .
         container_name: livros-celery
-        command: ["poetry","run","celery","-A","celery_app:celery_app","worker","-Q","livros","--loglevel=info"]
+        command: ["poetry","run","celery","-A","celery_app:celery_app","worker","--loglevel=info"]
         volumes:
             - .:/app
         depends_on:
             - redis
         env_file:
-            - .env
+            - .env 
+
+    zookeeper:
+        image: docker.io/confluentinc/cp-zookeeper:7.5.2
+        container_name: livros-zookeeper
+        ports:
+            - "2181:2181"
+        environment:
+            ZOOKEEPER_CLIENT_PORT: 2181
+            ZOOKEEPER_TICK_TIME: 2000
+
+    kafka:
+        image: docker.io/confluentinc/cp-kafka:7.5.2
+        container_name: livros-kafka
+        ports:
+            - "9092:9092"
+        depends_on:
+            - zookeeper
+        environment:
+            KAFKA_BROKER_ID: 1
+            KAFKA_ZOOKEEPER_CONNECT: livros-zookeeper:2181
+            KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+            KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+            KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+    kafka-ui:
+        image: docker.io/provectuslabs/kafka-ui:latest
+        container_name: livros-kafka-ui
+        ports: 
+            - "8080:8080"
+        depends_on:
+            - kafka
+        environment:
+            - KAFKA_CLUSTERS_0_NAME=local
+            - KAFKA_CLUSTERS_0_BOOTSTRAP_SERVERS=kafka:9092

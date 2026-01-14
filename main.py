@@ -1,28 +1,3 @@
-
-#API de livros
-
-#GET, POST,PUT,DELETE
-
-#POST - Adicionar novos livros(create)
-#GET - buscar os dados dos livros(read)
-#PUT - Atualizar informações dos livros(update)
-#DELETE - Deletar informações dps livros(delete)
-
-#CRUDE é =
-
-#create
-#read
-#update
-#delete
-
-# Vamos acessar nosso ENDPOINT -->http://127.0.0.1:8000
-# E vamos acessar os PATH's desse endpoint-->/adiciona
-# -->?id_livro=1&nome_livro=ciro rei persa&autor_livro=ciro&ano_livro=2025
-
-#final exemplo usando o POST -->http://127.0.0.1:8000/adiciona?id_livro=1&nome_livro=ciro%20rei%20persa&autor_livro=ciro&ano_livro=2025
-
-#documentação Swagger -> documentar os endpoints da nossa aplicação(da nossa API)
-
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security import HTTPBasic,HTTPBasicCredentials
 from pydantic import BaseModel
@@ -39,6 +14,7 @@ from sqlalchemy import create_engine,Column,Integer,String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker,Session
 import asyncio
+from kafka_producer import enviar_evento
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -101,7 +77,9 @@ def sessao_db():
         yield db
     finally:
         db.close()
-
+@app.get("/")
+def hello_world():
+    return {"Hello":"World!"}
 
 def autenticar_meu_usuario(credentials:HTTPBasicCredentials=Depends(security)):
     is_username_correct=secrets.compare_digest(credentials.username,MEU_USUARIO)
@@ -140,76 +118,33 @@ def listar_tarefas_recentes():
             "status":resultado.status,
             "resultado":resultado.result if resultado.successful() else None
         })
-    return tarefas
+    return {"tarefas":tarefas}
 
-@app.get("/result/{task_id}")
-def resultr(task_id: str):
-    resultado = AsyncResult(task_id, app=celery_app)
-    return {
-        "task_id": task_id,
-        "status": resultado.status,
-        "resultado": resultado.result if resultado.successful() else None
-    }
-@app.get("/result/forcado/{task_id}")
-def resultr_forcado(task_id: str):
-    resultado = AsyncResult(task_id, app=celery_app)
-    try:
-        # Aguarda até 10 segundos pelo resultado
-        valor = resultado.get(timeout=10)
-        return {
-            "task_id": task_id,
-            "status": resultado.status,
-            "resultado": valor
-        }
-    except Exception as e:
-        return {
-            "task_id": task_id,
-            "status": resultado.status,
-            "erro": str(e)
-        }
+@app.get("/calcular/status/{task_id}")
+def status_tarefa(task_id: str):
+    result = AsyncResult(task_id, app=celery_app)
+    status = result.status
+    resposta = {"task_id": task_id, "status": status}
+
+    if status in ("SUCCESS", "FAILURE"):
+        # Se terminou (com sucesso ou erro), removemos o id do Redis
+        redis_client.lrem("tarefas_ids", 0, task_id)
+        resposta["result"] = result.result  # Mostra o resultado ou exceção
+
+    return resposta
 
 #estrategia de cache para pegar POST,PUT,DELET da api
 @app.get("/debug/redis")    
-def ver_livros_redis():
-    chaves=redis_client.keys("livro:*")
-    livros=[]
-    for chave in chaves:
-        valor=redis_client.get(chave)  
-        livros.append({"chave":chave,"valor":json.loads(valor)})      
-    return livros
-
-
-#paginação somente no meto GET sem estrategia de cache
-@app.get("/livros")
-async def get_livros(page: int=1,limit:int=100,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
-    if page < 0 or limit<=0:
-        raise HTTPException(status_code=400,detail="page ou limit estão com valores inválidos!!")
-    
-    livros=db.query(LivroDB).offset((page-1)*limit).limit(limit).all()
-
-    if not livros:
-        return {"message":"Não existe nenhum livro!!"}
-
-    
-    total_livros=db.query(LivroDB).count()
-    return {
-        "page":page, 
-        "limit":limit,
-        "total":total_livros,
-        "livros":[{"id":livro.id,"nome_livro":livro.nome_livro,"autor_livro":livro.autor_livro,"ano_livro":livro.ano_livro}
-                  for livro in livros]
-    }
-
-@app.get("/debug/redis/get")    
 def ver_livros_redis():
     chaves=redis_client.keys("livros:*")
     livros=[]
     for chave in chaves:
         valor=redis_client.get(chave)  
         ttl=redis_client.ttl(chave)
-        livros.append({"chave":chave,"tempo de ttl":ttl,"valor":json.loads(valor)})      
-    return livros 
-@app.get("/livros/redis")
+        livros.append({"chave":chave,"valor":json.loads(valor),"TTL":ttl})      
+    return livros
+
+@app.get("/livros")
 async def get_livros(page: int=1,limit:int=100,db:Session=Depends(sessao_db),credentials:HTTPBasicCredentials=Depends(autenticar_meu_usuario)):
     if page < 0 or limit<=0:
         raise HTTPException(status_code=400,detail="page ou limit estão com valores inválidos!!")
@@ -248,6 +183,11 @@ async def post_livros(livro:Livro,db:Session=Depends(sessao_db),credentials:HTTP
     db.commit() 
     db.refresh(novo_livro)
     salvar_livro_redis(novo_livro.id,livro)
+
+    enviar_evento("livros_eventos",{
+        "acao":"criar",
+        "livro":livro.dict()
+    })
     return{"message":"o livro foi criado com sucesso"}
 
 @app.put("/atualiza/{id_livro}")
