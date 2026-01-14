@@ -30,6 +30,3 @@ jobs:
       - name: Rodar testes (placeholder)
         run: echo "Nenhum teste configurado ainda."
 
-      - name: Verificar conexão com banco de dados
-        env:
-          DATABASE_URL: "sqlite:///./test.db"
