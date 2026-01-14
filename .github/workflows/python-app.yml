@@ -1,4 +1,4 @@
-name: FastAPI - Basic Check
+name: FastAPI - CI Pipeline
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
       - name: Instalar Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.12"
+          python-version: "3.9"
 
       - name: Instalar Poetry
         run: |
@@ -25,8 +25,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
       - name: Instalar dependências com Poetry
-        run: poetry install --no-interaction --no-root
+        run: poetry install --no-root --no-interaction
 
-      - name: Rodar testes (placeholder)
-        run: echo "Nenhum teste configurado ainda."
-
+      - name: Rodar testes
+        run: poetry run pytest
